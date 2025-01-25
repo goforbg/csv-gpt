@@ -12,6 +12,7 @@ export default function CSVUploader({ onProcessed, onError }) {
   const [isProcessingComplete, setIsProcessingComplete] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
   const [error, setError] = useState("");
+  const [progress, setProgress] = useState(0);
 
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
@@ -45,35 +46,52 @@ export default function CSVUploader({ onProcessed, onError }) {
   };
 
   const processCSV = async (dataToProcess) => {
+    console.log("[CSVUploader] Starting CSV processing");
     if (!prompt.trim()) {
+      console.log("[CSVUploader] Error: Empty prompt");
       setError("Please enter a prompt before processing.");
       return;
     }
 
     setIsLoading(true);
     setError("");
+    setProgress(0);
+
     try {
+      console.log(
+        `[CSVUploader] Sending request with ${dataToProcess.length} rows`
+      );
       const response = await fetch("/api/process-csv", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: dataToProcess, prompt })
+        body: JSON.stringify({
+          data: dataToProcess,
+          prompt
+        })
       });
 
       if (!response.ok) {
+        console.error("[CSVUploader] API response not OK:", response.status);
         throw new Error("Failed to process CSV");
       }
 
       const processedData = await response.json();
+      console.log(
+        `[CSVUploader] Received processed data: ${processedData.length} rows`
+      );
       onProcessed(processedData);
       setProcessedCount((prevCount) => prevCount + processedData.length);
 
       if (dataToProcess.length > 1) {
+        console.log("[CSVUploader] Processing complete for multiple rows");
         setIsProcessingComplete(true);
       }
     } catch (error) {
+      console.error("[CSVUploader] Error during processing:", error);
       setError(error.message);
       onError(error.message);
     } finally {
+      console.log("[CSVUploader] Processing finished");
       setIsLoading(false);
     }
   };
@@ -161,6 +179,19 @@ export default function CSVUploader({ onProcessed, onError }) {
       {isProcessingComplete && (
         <div className="text-green-600 font-semibold">
           Processing complete for {processedCount} contacts.
+        </div>
+      )}
+      {isLoading && (
+        <div className="w-full">
+          <div className="bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+            <div
+              className="bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <div className="text-sm text-gray-600 mt-1 text-center">
+            {Math.round(progress)}% Complete
+          </div>
         </div>
       )}
     </div>
